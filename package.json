@@ -1,0 +1,26 @@
+{
+  "name": "electron-slide-down",
+  "version": "0.1.0",
+  "description": "A hassle-free markdown-based slide deck builder using Electron",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "repository": "https://github.com/flaki/electron-slide-down",
+  "keywords": [
+    "Electron",
+    "markdown",
+    "slides"
+  ],
+  "author": "Flaki",
+  "license": "CC0-1.0",
+  "devDependencies": {
+    "electron": "^1.4.1"
+  },
+  "dependencies": {
+    "electron-screenshot-app": "^4.0.2",
+    "markdown-it": "^8.1.0",
+    "fs-extra": "^1.0.0",
+    "node-fetch": "^1.6.3"
+  }
+}
