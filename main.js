@@ -15,13 +15,8 @@ app.on('window-all-closed', function () {
 
 app.on('ready', function() {
   let src = process.argv[2] || 'src/input.md',
-    target = process.argv[3] || 'www',
-    urls = [
-      'http://www.theverge.com/2016/5/20/11721890/uber-surge-pricing-low-battery',
-      'https://api.twitter.com/1.1/statuses/oembed.json?id=507185938620219395',
-    ];
+    target = process.argv[3] || 'www';
 
-  //screenshotUrl(getURL, 'uber.jpg').then(_ => console.log('Succcessfully exported ', getURL));
   generate(src, target)
     .then(outFile => console.log(outFile, 'created.'))
     .then(_ => displaySlides(path.join(__dirname, target, 'index.html')))
@@ -36,7 +31,7 @@ function generate(srcFile, outFolder) {
 
   return new Promise( (resolve, reject) => {
     let md = markdownIt({
-      linkify: true,
+      linkify: false,
       typographer: true,
     });
     fs.readFile(path.join(__dirname, srcFile), (err, source) => {
@@ -71,31 +66,66 @@ function generate(srcFile, outFolder) {
 
       //
       let $ = cheerio.load(out);
-      let urls = Array.from( $('a[href]').get() )
-        .map( e => $(e).attr('href') );
-      console.log( urls  );
+//      let urls = Array.from( $('a[href]').get() )
+//        .map( e => $(e).attr('href') );
+      let urls = Array.from( $('img[src]').get() )
+        .map( e => {
+          let $e = $(e),
+            src = $e.attr('src');
 
-      // Read template file and render contents its contents with the rendered output
-      fs.readFile(path.join(__dirname, 'template/template.html'), (err, template) => {
-        template = template.toString().replace(/\{mainContent\}/, out);
+          // proper image
+          if (src.match(/\.(png|jpg|jpeg|gif)$/)) {
+            // do not transform
+            return src;
 
-        const outFile = path.join(__dirname, outFolder, 'index.html');
-        fs.ensureDir(outFolder, err => {
-          fs.writeFile(outFile, template, err => {
-            if (err) reject(err);
-            fs.copy(
-              path.join(__dirname, 'template/res'),
-              path.join(__dirname, outFolder, 'res'),
-              { clobber: true },
-              err => {
-                if (err) reject(err);
-                resolve(outFile);
-              }
-            );
-          });
+          // tweet
+          } else if (false) {
+
+          // general link
+          } else {
+            let fn = src.replace(/(^https?|\W+)/g,' ').trim().replace(/\s/g,'_')+'.jpg';
+            return screenshotUrl(
+                src, path.join(__dirname, 'www/img', fn)
+              ).then(
+                _ => {
+                  let url = 'img/'+fn;
+                  $e.attr('src', url);
+                  $e.wrap($('<a href="'+src+'"></a>'));
+                  return url;
+                }
+              );
+          }
         });
 
+      Promise.all(urls).then(urls => {
+        console.log(urls);
+
+        // Update output
+        out = $.html();
+
+        // Read template file and render contents its contents with the rendered output
+        fs.readFile(path.join(__dirname, 'template/template.html'), (err, template) => {
+          template = template.toString().replace(/\{mainContent\}/, out);
+
+          const outFile = path.join(__dirname, outFolder, 'index.html');
+          fs.ensureDir(outFolder, err => {
+            fs.writeFile(outFile, template, err => {
+              if (err) reject(err);
+              fs.copy(
+                path.join(__dirname, 'template/res'),
+                path.join(__dirname, outFolder, 'res'),
+                { clobber: true },
+                err => {
+                  if (err) reject(err);
+                  resolve(outFile);
+                }
+              );
+            });
+          });
+
+        });
       });
+
     });
   });
 }
@@ -123,28 +153,45 @@ function screenshotUrl(urlOrSettings, filename) {
     settings = urlOrSettings;
   }
 
+  // Make sure we're not fetching URLs already having a (recent) export
+  try {
+    // TODO: make async
+    fs.accessSync(filename);
+
+    // File exists and accessible, do not redownload
+    console.log(`Skipping ${path.basename(filename)} (already exists)`);
+    return Promise.resolve(filename);
+
+  } catch (e) {}
+
+  // Fetch new screenshot
   return new Promise((resolve, reject) => {
     screenshot(
       Object.assign({}, defaultSettings, settings),
       (err, image) => {
         if (err && err !=='[0] OK') {
-          reject(err);
+          return reject(err);
         }
 
         // If filename specified write to file
-        if (filename) {
+        if (image && filename) {
           require('fs').writeFile(filename, image.data, err => {
             if (err) {
-              reject(err);
-            } else {
-              resolve(true);
+              return reject(err);
             }
+
+            console.log(`Exported screenshot: ${path.basename(filename)}`);
+            return resolve(filename);
           });
+
+          return;
 
         // No filename, return image data
         } else {
-          resolve(image);
+          return resolve(image);
         }
+
+        reject(new Error('Screenshot operation failed.'));
       }
     );
 
@@ -166,5 +213,6 @@ function displaySlides(path) {
   // Emitted when the window is closed.
   wnd.on('closed', function () {
     console.log('Finished.');
+    app.quit();
   });
 }
