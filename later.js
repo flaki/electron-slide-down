@@ -13,12 +13,6 @@ const urlString = require('./lib/url.js').stringify;
 let md = path.join(__dirname, 'src/later.md');
 let list = fs.readFileSync(md).toString().split(/\r?\n/).filter(e => e.trim() !== '');
 
-// debug: choose just one item
-// TODO: cache items properly and only refresh after N time, then remove this
-let sel = Math.random()*list.length|0;
-console.log(sel)
-list = list.slice(sel, sel+1);
-
 let out = fs.readFileSync(path.join(__dirname, 'template/template.html'));
 
 fs.ensureDirSync(path.join(__dirname, 'www/htmlcache'));
@@ -26,9 +20,19 @@ fs.ensureDirSync(path.join(__dirname, 'www/metadata'));
 
 // TODO: only fetch non-cached documents
 // TODO: re-fetch stale documents (check ts timestamp-property)
-Promise.all( list.map( e => fetch(e) ) )
+Promise.all( list.map( (e, i) => {
+  let p = path.join(__dirname, 'www/htmlcache/'+urlString(list[i])+'.html' );
+  try {
+    return fs.readFileSync(p).toString();
+  }
+  catch(e) {}
+
+  console.log(p, 'not found, fetching...');
+  return fetch(e);
+  // TODO: twitter responds in Hungarian
+}) )
 .then(resp => {
-  return Promise.all(resp.map( e => e.text() ));
+  return Promise.all(resp.map( e => typeof e === 'string' ? e : e.text() ));
 })
 .then(body => {
   let res = [];
@@ -68,7 +72,7 @@ Promise.all( list.map( e => fetch(e) ) )
   });
 
 
-
+  // TODO: genarate and output src file
 
 }).catch(ex => {
   console.log('Error occured!');
