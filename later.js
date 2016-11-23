@@ -13,7 +13,7 @@ const urlString = require('./lib/url.js').stringify;
 let md = path.join(__dirname, 'src/later.md');
 let list = fs.readFileSync(md).toString().split(/\r?\n/).filter(e => e.trim() !== '');
 
-let out = fs.readFileSync(path.join(__dirname, 'template/template.html'));
+let out = fs.readFileSync(path.join(__dirname, 'template/later.html')).toString();
 
 fs.ensureDirSync(path.join(__dirname, 'www/htmlcache'));
 fs.ensureDirSync(path.join(__dirname, 'www/metadata'));
@@ -73,6 +73,28 @@ Promise.all( list.map( (e, i) => {
 
 
   // TODO: genarate and output src file
+  let $ = cheerio.load('<ul></ul>');
+
+  res.forEach(e => {
+    let anchor = $('<a></a>')
+      .attr('href', e.url)
+      .attr('target', '_blank')
+      .append(
+        e.icon ? `<img src ="${e.icon}" alt="" /> ` : '',
+        `<i>${e.title}</i>`
+      );
+
+    $('ul').append(
+      $('<li></li>').append(anchor)
+    ).append('\n');
+  })
+  out = out.replace(/\{mainContent\}/, $.html());
+  out = out.replace(/\{title\}/, 'L8r');
+
+  fs.writeFileSync(
+    path.join(__dirname, 'www/later.html'),
+    out
+  );
 
 }).catch(ex => {
   console.log('Error occured!');
@@ -88,10 +110,15 @@ function getTitle(e) {
 function getIcon(e) {
   let icon;
 
-  icon = e.$('link[rel="icon"][href$=".png"]').attr('href')
+  icon = e.$('link[rel~="icon"][href$=".png"]').attr('href')
       || e.$('link[rel][href$=".ico"]').attr('href');
 
-  if (icon) e.icon = url.resolve(e.url, icon);
+  if (icon) {
+    e.icon = url.resolve(e.url, icon);
+    return;
+  }
+
+  // TODO: RegExp fallback
 }
 
 function getImage(e) {}
