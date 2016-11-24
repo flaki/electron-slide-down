@@ -18,7 +18,6 @@ let out = fs.readFileSync(path.join(__dirname, 'template/later.html')).toString(
 fs.ensureDirSync(path.join(__dirname, 'www/htmlcache'));
 fs.ensureDirSync(path.join(__dirname, 'www/metadata'));
 
-// TODO: only fetch non-cached documents
 // TODO: re-fetch stale documents (check ts timestamp-property)
 Promise.all( list.map( (e, i) => {
   let p = path.join(__dirname, 'www/htmlcache/'+urlString(list[i])+'.html' );
@@ -54,23 +53,50 @@ Promise.all( list.map( (e, i) => {
     res.push(e);
   });
 
-  // Save metadata
+  // Additional metadata for certain sites
+  let more = [];
+
   res.forEach(e => {
-    // Save HTML
-    fs.writeFileSync(path.join(__dirname, 'www/htmlcache/'+e.key+'.html'), e.body);
+    let parsedUrl = url.parse(e.url),
+      hostname = parsedUrl.hostname,
+      pathname = parsedUrl.pathname;
 
-    // Purge unneccessary metadata properties
-    delete e.$;
-    e.body = e.body.substr(0,16)+'...';
-    console.log(e);
-    delete e.body;
+    // Twitter (get oEmbed data)
+    if (hostname.match(/twitter\.com/)) {
+      more.push(
+        fetch('https://publish.twitter.com/oembed?url='+require('querystring').escape(e.url))
+          .then(r => r.json())
+          .then(r => e.oembed = r)
+      )
+    }
 
-    // Save metadata
-    fs.writeFileSync(path.join(__dirname, 'www/metadata/'+e.key+'.json'), JSON.stringify(e));
-
-    return e
   });
+  // TODO: do not refetch this if we have this in the metadata already
 
+  // Save metadata
+  let save = function() {
+    res.forEach(e => {
+      // Save HTML
+      fs.writeFileSync(path.join(__dirname, 'www/htmlcache/'+e.key+'.html'), e.body);
+
+      // Purge unneccessary metadata properties
+      delete e.$;
+      e.body = e.body.substr(0,16)+'...';
+      console.log(e);
+      delete e.body;
+
+      // Save metadata
+      fs.writeFileSync(path.join(__dirname, 'www/metadata/'+e.key+'.json'), JSON.stringify(e));
+
+      return e
+    });
+  };
+
+  if (more.length) {
+    Promise.all(more).then(save);
+  } else {
+    save();
+  }
 
   // TODO: genarate and output src file
   let $ = cheerio.load('<ul></ul>');
@@ -78,6 +104,7 @@ Promise.all( list.map( (e, i) => {
   res.forEach(e => {
     let anchor = $('<a></a>')
       .attr('href', e.url)
+      .attr('title', e.title)
       .attr('target', '_blank')
       .append(
         e.icon ? `<img src ="${e.icon}" alt="" /> ` : '',

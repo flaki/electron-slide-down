@@ -12,4 +12,7 @@
   <main>{mainContent}</main>
 
   <script src="./res/main.js"></script>
+  <script>
+    Array.from(document.querySelectorAll('h1:first-child:last-child,h2:first-child:last-child')).forEach(e => e.parentNode.classList.add('title',e.tagName));
+  </script>
 </body>
