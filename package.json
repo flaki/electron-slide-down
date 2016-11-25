@@ -5,13 +5,13 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "links": "node later.js"
+    "links": "node links.js"
   },
   "repository": "https://github.com/flaki/electron-slide-down",
   "keywords": [
     "Electron",
     "markdown",
-    "slides"
+    "slides", "links"
   ],
   "author": "Flaki",
   "license": "CC0-1.0",
@@ -19,9 +19,10 @@
     "electron": "^1.4.1"
   },
   "dependencies": {
+    "cheerio": "^0.22.0",
     "electron-screenshot-app": "^4.0.2",
-    "markdown-it": "^8.1.0",
     "fs-extra": "^1.0.0",
+    "markdown-it": "^8.1.0",
     "node-fetch": "^1.6.3"
   }
 }

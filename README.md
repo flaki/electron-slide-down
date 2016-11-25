@@ -13,10 +13,27 @@ git clone https://github.com/flaki/electron-slide-down
 cd electron-slide-down
 # Install dependencies
 npm install
-# Create soume source markdown
-touch input.md
+# Create some source markdown
+touch src/input.md
 # Run the app
-npm start input.md
+npm run start
+
+# Choose your own source file
+npm run start path/to/input.md
+```
+
+## Using `links`
+Links generates a reading list from a file containing a bunch of links and
+fetches metadata/page source etc. for those files for easy searchability.
+
+```bash
+# Clone repo and install dependencies as above
+
+# Source file containing the links
+touch src/links.md
+
+# Generate www/links.html
+npm run links
 ```
 
 #### License [CC0 1.0 (Public Domain)](LICENSE.md)

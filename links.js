@@ -10,10 +10,10 @@ const cheerio = require('cheerio');
 const urlString = require('./lib/url.js').stringify;
 
 
-let md = path.join(__dirname, 'src/later.md');
+let md = path.join(__dirname, 'src/links.md');
 let list = fs.readFileSync(md).toString().split(/\r?\n/).filter(e => e.trim() !== '');
 
-let out = fs.readFileSync(path.join(__dirname, 'template/later.html')).toString();
+let out = fs.readFileSync(path.join(__dirname, 'template/links.html')).toString();
 
 fs.ensureDirSync(path.join(__dirname, 'www/htmlcache'));
 fs.ensureDirSync(path.join(__dirname, 'www/metadata'));
@@ -119,7 +119,7 @@ Promise.all( list.map( (e, i) => {
   out = out.replace(/\{title\}/, 'L8r');
 
   fs.writeFileSync(
-    path.join(__dirname, 'www/later.html'),
+    path.join(__dirname, 'www/links.html'),
     out
   );
 
