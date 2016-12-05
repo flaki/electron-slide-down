@@ -4,8 +4,8 @@
   "description": "A hassle-free markdown-based slide deck builder using Electron",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "links": "node links.js"
+    "start": "electron ."
+    ,"links": "node links.js"
   },
   "repository": "https://github.com/flaki/electron-slide-down",
   "keywords": [

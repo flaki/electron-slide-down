@@ -3,14 +3,15 @@
 const fetch = require('node-fetch'),
       fs = require('fs-extra'),
       path = require('path'),
-      url = require('url');
+      url = require('url'),
+      querystring = require('querystring');
 
 const cheerio = require('cheerio');
 
 const urlString = require('./lib/url.js').stringify;
 
 
-let md = path.join(__dirname, 'src/links.md');
+let md = process.argv[2] || path.join(__dirname, 'src/links.md');
 
 let lines = fs.readFileSync(md).toString()
   .split(/\r?\n/)
@@ -98,26 +99,43 @@ lines.forEach(ln => {
 //console.log(JSON.stringify(list));
 //fs.writeFileSync(md.replace(/\.md$/, '.json'), JSON.stringify(list, null, 2));
 //process.exit(0);
+function fetchResultByType(bodytext, type) {
+  switch(type) {
+    case 'json':
+      return JSON.parse(bodytext);
 
-function loadMeta(e) {
-  return Promise.resolve().then(() => {
-    let p = path.join(__dirname, 'www/htmlcache/'+e.key+'.html' );
+    default:
+      return bodytext;
+  }
+}
+
+function loadCachedOrFetch(url, type) {
+  let key = urlString(url),
+      p = path.join(__dirname, `www/cache/${type}/${key}.${type}` );
+
+  return new Promise( (resolve, reject) => {
     try {
-      return fs.readFileSync(p).toString();
+      let bodytext = fs.readFileSync(p).toString();
+
+      return resolve( fetchResultByType(bodytext, type) );
     }
     catch(ex) {}
 
-    console.log(p, 'not found, fetching...');
-    return fetch(e.url).then(e => e.text()).then(bodytext => {
-      // Cache HTML response
-      fs.writeFileSync(path.join(__dirname, 'www/htmlcache/'+e.key+'.html'), bodytext);
+    console.log(p, 'not cached, fetching...');
 
-      return bodytext;
-    });
-    // TODO: twitter responds in Hungarian
-    // add ?lang=en param to twitter urls
+    resolve( fetch(url).then(e => e.text()).then(bodytext => {
+      // Cache response
+      fs.writeFileSync(p, bodytext);
 
-  }).then(bodytext => {
+      return fetchResultByType(bodytext, type);
+    }));
+  });
+}
+
+function loadMeta(e) {
+  // TODO: twitter responds in Hungarian
+  // add ?lang=en param to twitter urls
+  return loadCachedOrFetch(e.url, 'html').then(bodytext => {
     // Link object
     e.ts = Date.now();
 
@@ -137,10 +155,28 @@ function loadMeta(e) {
 
     // Twitter (get oEmbed data)
     if (hostname.match(/twitter\.com/)) {
-      // TODO: have all these responses cached too
-      promise = fetch('https://publish.twitter.com/oembed?url='+require('querystring').escape(e.url))
-        .then(r => r.json())
+      promise = loadCachedOrFetch('https://publish.twitter.com/oembed?url='+querystring.escape(e.url), 'json')
         .then(r => {
+          e.oembed = r;
+
+          //console.log(e);
+          return e;
+        })
+    }
+
+    // Youtube (get oEmbed data)
+    if (hostname.match(/youtube\.com/)) {
+      let m = e.url.match(/(?:&|\?)v=([a-yA-Z0-9!_-]+)/);
+
+      // TODO: cache storyboard data/images
+
+      // TODO: check if video url request
+      promise = loadCachedOrFetch('https://noembed.com/embed?url=http%3A//youtube.com/watch%3Fv%3D'+querystring.escape(m[1]), 'json')
+        .then(r => {
+          if (r.thumbnail_url) {
+            r.thumbnail_url_highres = r.thumbnail_url.replace('hqdefault', 'maxresdefault');
+          }
+
           e.oembed = r;
 
           //console.log(e);
@@ -168,17 +204,17 @@ function loadMeta(e) {
 
 }
 
-fs.ensureDirSync(path.join(__dirname, 'www/htmlcache'));
+fs.ensureDirSync(path.join(__dirname, 'www/cache/html'));
+fs.ensureDirSync(path.join(__dirname, 'www/cache/json'));
 fs.ensureDirSync(path.join(__dirname, 'www/metadata'));
 
 // TODO: re-fetch stale documents (check ts timestamp-property)
 let mainContent = [];
 
 list.forEach(block => {
-  let blockStatus = [];
 
   // Get metadata
-  block.links.forEach( e => blockStatus.push(loadMeta(e)) );
+  let blockStatus = block.links.map( e => loadMeta(e) );
 
   // Wait for all metadata to be fetched, generate content output
   mainContent.push( Promise.all(blockStatus).then(() => {
@@ -190,10 +226,10 @@ list.forEach(block => {
     block.links.forEach(e => {
       let anchor = $('<a></a>')
         .attr('href', e.url)
-        .attr('title', e.title.replace(/\r?\n/g,'&#x0A;'))
+        .attr('title', e.title.replace(/\r?\n/g,'%#x0A;'))
         .attr('target', '_blank')
         .append(
-          e.icon ? `<img src ="${e.icon}" alt="" /> ` : '',
+          e.icon ? `<img src ="${e.icon}" alt="" /> ` : '', // TODO: cache favicons
           `<i>${e.title}</i>`
         );
 
@@ -204,14 +240,14 @@ list.forEach(block => {
       $('h1').text(block.tags.join(' '));
     });
 
-    return $.html();
+    return $.html().replace('%#x','&#x');
   }));
 });
 
 // Genarate and output html file
 Promise.all(mainContent).then((mainContentBlocks) => {
   // Write updated list
-  console.log(JSON.stringify(list, null, 1))
+  //console.log(JSON.stringify(list, null, 1))
   fs.writeFileSync(md.replace(/\.md$/, '.json'), JSON.stringify(list, null, 2));
 
   // Output generated main content file
@@ -224,6 +260,9 @@ Promise.all(mainContent).then((mainContentBlocks) => {
     path.join(__dirname, 'www/links.html'),
     out
   );
+}).catch(ex => {
+  console.log('Error occured!');
+  console.error(ex.stack || ex);
 });
 
 
