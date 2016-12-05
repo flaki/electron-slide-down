@@ -6,6 +6,7 @@
   "scripts": {
     "start": "electron ."
     ,"links": "node links.js"
+    ,"links:animtest": "cp -u template/animtest.html www/animtest.html"
   },
   "repository": "https://github.com/flaki/electron-slide-down",
   "keywords": [
